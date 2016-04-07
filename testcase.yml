@@ -1,0 +1,42 @@
+---
+- hosts: "{{target|default('all')}}"
+  become: true
+  become_user: "{{ deployment_user|default('vagrant') }} -i"
+  become_method: "sudo"
+
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - include: tasks/sync.yml
+
+    - block:
+      - name: "Load the sample data (load-data)"
+        shell: |
+          cd ~/services &&
+          ./build/influx -execute 'create database sampledb' &&
+          curl --data-binary @- "http://localhost:8086/write?db=sampledb&precision=ns" < test-data/load.influx &&
+          build/kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
+
+      tags: ["load-data"]
+
+    - block:
+      - name: "Load the tick data (load-ticks)"
+        shell: |
+          cd ~/services &&
+          build/kapacitor define -name aggregate -tick tick/aggregate.tick -type stream -dbrp "sampledb"."default"
+
+      tags: ["load-ticks"]
+
+    - block:
+      - name: "Run the test case"
+        shell: |
+          cd ~/services &&
+          (build/influx --execute 'drop measurement actual' --database sampledb || true)  &&
+          (build/influx --execute 'drop measurement expected' --database sampledb || true) &&
+          build/kapacitor replay -id $(cat recording.id) -name aggregate --fast --rec-time &&
+          build/influx --format=csv --execute "select mean(metric1) as metric1 into expected from sample where time >= '2016-03-08 05:00:00' and time < '2016-03-08 08:00:00' group by time(5m), *" --precision=rfc3339 --database=sampledb &&
+          build/influx --format=csv --execute 'select * from actual' --precision=rfc3339 --database=sampledb > actual.csv &&
+          build/influx --format=csv --execute 'select * from expected' --precision=rfc3339 --database=sampledb > expected.csv
+
+      tags: ["test-case"]
