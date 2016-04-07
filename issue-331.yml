@@ -1,0 +1,30 @@
+---
+- hosts: "{{target|default('all')}}"
+  become: true
+  become_user: "{{ deployment_user|default('vagrant') }} -i"
+  become_method: "sudo"
+
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - include: tasks/sync.yml
+
+    - block:
+      - name: "Load the tick scripts"
+        shell: |
+          docker-compose up -d
+          kapacitor define -name join -tick tick/join.tick -type stream -dbrp "sampledb"."default"
+        args:
+          chdir: ~/services
+
+      tags: ["load-ticks"]
+
+    - block:
+      - name: "Run the test case"
+        shell: |
+          kapacitor replay -id $(cat recording.id) -name join --fast --rec-time
+        args:
+          chdir: ~/services
+
+      tags: ["test-case"]
