@@ -74,7 +74,7 @@ Vagrant.configure(2) do |config|
   config.vm.provision "ansible" do |ansible|
     ansible.limit = "all"
     ansible.verbose = "v"
-    ansible.playbook = "main.yml"
+    ansible.playbook = "setup.yml"
     ansible.raw_arguments = []
   end
 end
