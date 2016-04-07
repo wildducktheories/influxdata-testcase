@@ -1,9 +1,12 @@
 - block:
-  - name: synchronize files
-    synchronize: src=files/ dest=~/ archive=no recursive=yes perms=yes
-
   - name: synchronize tests
     synchronize: src=tests/ dest=~/tests/ archive=no recursive=yes perms=yes
+
+  - name: synchronize test-data
+    synchronize: src=test-data/ dest=~/test-data/ archive=no recursive=yes perms=yes
+
+  - name: synchronize services
+    synchronize: src=services/ dest=~/services/ archive=no recursive=yes perms=yes
 
   - name: ownership
     file: path=/home/{{ansible_user}}/ owner={{ansible_user}} group={{ansible_user}} recurse=yes
