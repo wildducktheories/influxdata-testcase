@@ -13,7 +13,6 @@
     - block:
       - name: "Load the tick scripts"
         shell: |
-          docker-compose up -d
           kapacitor define -name join -tick tick/join.tick -type stream -dbrp "sampledb"."default"
         args:
           chdir: ~/services
