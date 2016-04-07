@@ -3,7 +3,7 @@ A Vagrantfile and ansible glue for documenting influxdata related testcases.
 
 ##Installation
 
-Install vagrant and ansible, then:
+Install VirtualBox, vagrant and ansible, then:
 
 	vagrant up
 
