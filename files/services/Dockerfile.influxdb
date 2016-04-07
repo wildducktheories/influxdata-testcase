@@ -1,0 +1,4 @@
+FROM influxdb:latest
+
+COPY build/influx /usr/bin/
+COPY build/influxd /usr/bin/

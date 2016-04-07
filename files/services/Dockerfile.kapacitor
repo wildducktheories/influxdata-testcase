@@ -1,0 +1,4 @@
+FROM kapacitor:latest
+
+COPY build/kapacitor /usr/bin/
+COPY build/kapacitord /usr/bin/

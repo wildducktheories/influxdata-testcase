@@ -1,0 +1,29 @@
+---
+version: "2"
+services:
+  influxdb:
+    image: influxdb:build
+    expose:
+    - 8086
+    - 8083
+    volumes:
+      - ./data/influxdb:/var/lib/influxdb
+    ports:
+      - 8086:8086
+      - 8083:8083
+    build:
+      context: .
+      dockerfile: Dockerfile.influxdb
+
+  kapacitor:
+    image: kapacitor:build
+    build:
+      context: .
+      dockerfile: Dockerfile.kapacitor
+    expose:
+    - 9092
+    environment:
+      KAPACITOR_HOSTNAME: services_kapacitor_1
+      KAPACITOR_INFLUXDB_0_URLS_0: http://services_influxdb_1:8086
+    ports:
+      - 9092:9092

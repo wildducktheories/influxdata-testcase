@@ -1,0 +1,135 @@
+---
+- hosts: "{{target|default('all')}}"
+  become: true
+  become_user: "{{ deployment_user|default('vagrant') }} -i"
+  become_method: "sudo"
+
+  vars:
+    build_variant: false
+
+  vars_files:
+    - vars/main.yml
+
+  roles:
+    - role: angstwad.docker_ubuntu
+      become_user: root
+      docker_group_members: ["{{deployment_user|default('vagrant')}}"]
+
+    - role: joshualund.golang
+      go_tarball: go1.4.3.linux-amd64.tar.gz
+      go_tarball_checksum: sha1:332b64236d30a8805fc8dd8b3a269915b4c507fe
+      become_user: root
+
+  tasks:
+    - include: tasks/sync.yml
+
+    - block:
+      - name: "clone influxdb-docker"
+        git: repo=https://github.com/influxdata/influxdb-docker.git
+             dest=~/services/influxdb-docker
+
+      - name: "clone kapacitor-docker"
+        git: repo=https://github.com/influxdata/kapacitor-docker.git
+             dest=~/services/kapacitor-docker
+
+      - name: "clone influxdb"
+        git: repo=https://github.com/influxdata/influxdb.git
+             dest=~/go/src/github.com/influxdata/influxdb
+
+      - name: "clone kapacitor"
+        git: repo=https://github.com/influxdata/kapacitor.git
+             dest=~/go/src/github.com/influxdata/kapacitor
+      tags: ["clone"]
+
+    - block:
+      - name: "make base influxdb image"
+        docker_image:
+          path=/home/{{ansible_user}}/services/influxdb-docker/0.11/
+          name=influxdb
+          state=present
+          tag=latest
+
+      - name: "make base kapacitor image"
+        docker_image:
+          path=/home/{{ansible_user}}/services/kapacitor-docker/0.12/
+          name=kapacitor
+          state=present
+          tag=latest
+
+      - name: "initialise default copies"
+        shell: |
+          docker run --rm -v $(pwd)/services/build:/build --entrypoint=/bin/sh influxdb:latest -c 'cp /usr/bin/influx /build'
+          docker run --rm -v $(pwd)/services/build:/build --entrypoint=/bin/sh influxdb:latest -c 'cp /usr/bin/influxd /build'
+          docker run --rm -v $(pwd)/services/build:/build --entrypoint=/bin/sh kapacitor:latest -c 'cp /usr/bin/kapacitor /build'
+          docker run --rm -v $(pwd)/services/build:/build --entrypoint=/bin/sh kapacitor:latest -c 'cp /usr/bin/kapacitord /build'
+
+      - name: "build influxdb"
+        shell: |
+          bash -c '
+            pushd ~/go/src/github.com/influxdata/influxdb &&
+            go get -d ./... &&
+            popd &&
+            mkdir -p services/build &&
+            go build -o services/build/influxd github.com/influxdata/influxdb/cmd/influxd &&
+            go build -o services/build/influx github.com/influxdata/influxdb/cmd/influx
+          '
+        when: build_variant
+
+      - name: "build kapacitor"
+        shell: |
+          bash -c '
+            OLDPWD=$(pwd) &&
+            mkdir -p build &&
+            pushd ~/go/src/github.com/influxdata/kapacitor &&
+            go get -d ./... &&
+            docker run -it -v ${OLDPWD}/services/build:/app/build -v "${GOPATH}":/gopath -v "$(pwd)":/app -e "GOPATH=/gopath" -w /app golang:1.6 sh -c '\''go build --ldflags="-s" -o build/kapacitord ./cmd/kapacitord'\''
+            docker run -it -v ${OLDPWD}/services/build:/app/build -v "${GOPATH}":/gopath -v "$(pwd)":/app -e "GOPATH=/gopath" -w /app golang:1.6 sh -c '\''go build --ldflags="-s" -o build/kapacitor ./cmd/kapacitor'\''
+          '
+        when: build_variant
+
+      - name: "build composition"
+        shell: |
+          cd ~/services &&
+          docker-compose build
+
+      tags: ["build"]
+
+    - block:
+      - name: "start"
+        shell: |
+          cd ~/services &&
+          docker-compose up -d &&
+          sleep 5
+
+      tags: ["start"]
+
+    - block:
+      - name: "Load the sample data (load-data)"
+        shell: |
+          cd ~/services &&
+          ./build/influx -execute 'create database sampledb' &&
+          curl --data-binary @- "http://localhost:8086/write?db=sampledb&precision=ns" < test-data/load.influx &&
+          build/kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
+
+      tags: ["load-data"]
+
+    - block:
+      - name: "Load the tick data (load-ticks)"
+        shell: |
+          cd ~/services &&
+          build/kapacitor define -name aggregate -tick tick/aggregate.tick -type stream -dbrp "sampledb"."default"
+
+      tags: ["load-ticks"]
+
+    - block:
+      - name: "Run the test case"
+        shell: |
+          cd ~/services &&
+          (build/influx --execute 'drop measurement actual' --database sampledb || true)  &&
+          (build/influx --execute 'drop measurement expected' --database sampledb || true) &&
+          build/kapacitor replay -id $(cat recording.id) -name aggregate --fast --rec-time &&
+          build/influx --format=csv --execute "select mean(metric1) as metric1 into expected from sample where time >= '2016-03-08 05:00:00' and time < '2016-03-08 08:00:00' group by time(5m), *" --precision=rfc3339 --database=sampledb &&
+          build/influx --format=csv --execute 'select * from actual' --precision=rfc3339 --database=sampledb > actual.csv &&
+          build/influx --format=csv --execute 'select * from expected' --precision=rfc3339 --database=sampledb > expected.csv
+
+      tags: ["test-case"]

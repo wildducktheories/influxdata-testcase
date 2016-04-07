@@ -1,0 +1,9 @@
+- block:
+  - name: synchronize
+    synchronize: src=files/services/ dest=~/services/
+
+  - name: ownership
+    file: path=/home/{{ansible_user}}/services/ owner={{ansible_user}} group={{ansible_user}} recurse=yes
+    become_user: root
+  tags: ["sync"]
+
