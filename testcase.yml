@@ -1,0 +1,25 @@
+---
+- hosts: "{{target|default('all')}}"
+  become: true
+  become_user: "{{ deployment_user|default('vagrant') }} -i"
+  become_method: "sudo"
+
+  vars_files:
+    - vars/main.yml
+
+  tasks:
+    - name: "Check that test variable has been specified."
+      fail: msg="Specify the test to be run with -e test=issue-xxx"
+      when: test is not defined
+
+    - include: tasks/sync.yml
+
+    - name: "Run test cases - {{test}}"
+      shell: |
+        set -e
+        cd ~/services
+        docker-compose up -d
+        sleep 3
+        cd ~/tests/{{item}}
+        ./script
+      with_items: "{{test}}"

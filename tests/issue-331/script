@@ -1,0 +1,4 @@
+#!/bin/bash
+set -ex
+kapacitor define -name join -tick join.tick -type stream -dbrp "sampledb"."default"
+kapacitor replay -id $(cat ../../recording.id) -name join --fast --rec-time

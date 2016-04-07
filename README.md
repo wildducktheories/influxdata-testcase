@@ -9,8 +9,8 @@ Install VirtualBox, vagrant and ansible, then:
 
 ##Running
 
-	ansible-playbook issue-423.yml
-	ansible-playbook issue-331.yml
+	ansible-playbook testcase.yml -e test=issue-423
+	ansible-playbook testcase.yml -e test=issue-331
 
 ##Restarting the docker containers
 
