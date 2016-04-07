@@ -7,9 +7,6 @@
   vars:
     build_variant: false
 
-  vars_files:
-    - vars/main.yml
-
   roles:
     - role: angstwad.docker_ubuntu
       become_user: root
