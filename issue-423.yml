@@ -11,16 +11,6 @@
     - include: tasks/sync.yml
 
     - block:
-      - name: "Load the sample data (load-data)"
-        shell: |
-          cd ~/services &&
-          ./build/influx -execute 'create database sampledb' &&
-          curl --data-binary @- "http://localhost:8086/write?db=sampledb&precision=ns" < test-data/load.influx &&
-          build/kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
-
-      tags: ["load-data"]
-
-    - block:
       - name: "Load the tick data (load-ticks)"
         shell: |
           cd ~/services &&
