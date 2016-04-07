@@ -63,6 +63,15 @@
           docker run --rm -v $(pwd)/services/build:/build --entrypoint=/bin/sh kapacitor:latest -c 'cp /usr/bin/kapacitor /build'
           docker run --rm -v $(pwd)/services/build:/build --entrypoint=/bin/sh kapacitor:latest -c 'cp /usr/bin/kapacitord /build'
 
+      - block:
+        - name: "link the influx client"
+          file: path=/usr/bin/influx src=/home/{{ansible_user}}/services/build/influx state=link
+
+        - name: "link the kapacitor client"
+          file: path=/usr/bin/kapacitor src=/home/{{ansible_user}}/services/build/kapacitor state=link
+        tags: ["links"]
+        become_user: root
+
       - name: "build influxdb"
         shell: |
           bash -c '
@@ -107,8 +116,8 @@
       - name: "Load the sample data (load-data)"
         shell: |
           cd ~/services &&
-          ./build/influx -execute 'create database sampledb' &&
+          influx -execute 'create database sampledb' &&
           curl --data-binary @- "http://localhost:8086/write?db=sampledb&precision=ns" < test-data/load.influx &&
-          build/kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
+          kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
 
       tags: ["load-data"]
