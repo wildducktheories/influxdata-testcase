@@ -14,8 +14,6 @@
       - name: "Load the tick scripts"
         shell: |
           kapacitor define -name join -tick tick/join.tick -type stream -dbrp "sampledb"."default"
-        args:
-          chdir: ~/services
 
       tags: ["load-ticks"]
 
@@ -23,7 +21,5 @@
       - name: "Run the test case"
         shell: |
           kapacitor replay -id $(cat recording.id) -name join --fast --rec-time
-        args:
-          chdir: ~/services
 
       tags: ["test-case"]

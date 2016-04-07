@@ -14,8 +14,6 @@
       - name: "Load the tick scripts"
         shell: |
           kapacitor define -name aggregate -tick tick/aggregate.tick -type stream -dbrp "sampledb"."default"
-        args:
-          chdir: ~/services
 
       tags: ["load-ticks"]
 
@@ -30,7 +28,6 @@
           influx --format=csv --execute 'select * from expected' --precision=rfc3339 --database=sampledb > expected.csv &&
           diff <(sed "s/expected/actual/" < expected.csv) actual.csv
         args:
-          chdir: ~/services
           executable: /bin/bash
 
       tags: ["test-case"]

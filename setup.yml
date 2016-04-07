@@ -26,11 +26,11 @@
     - block:
       - name: "clone influxdb-docker"
         git: repo=https://github.com/influxdata/influxdb-docker.git
-             dest=~/services/influxdb-docker
+             dest=~/influxdb-docker
 
       - name: "clone kapacitor-docker"
         git: repo=https://github.com/influxdata/kapacitor-docker.git
-             dest=~/services/kapacitor-docker
+             dest=~/kapacitor-docker
 
       - name: "clone influxdb"
         git: repo=https://github.com/influxdata/influxdb.git
@@ -44,14 +44,14 @@
     - block:
       - name: "make base influxdb image"
         docker_image:
-          path=/home/{{ansible_user}}/services/influxdb-docker/0.11/
+          path=/home/{{ansible_user}}/influxdb-docker/0.11/
           name=influxdb
           state=present
           tag=latest
 
       - name: "make base kapacitor image"
         docker_image:
-          path=/home/{{ansible_user}}/services/kapacitor-docker/0.12/
+          path=/home/{{ansible_user}}/kapacitor-docker/0.12/
           name=kapacitor
           state=present
           tag=latest
@@ -115,7 +115,6 @@
     - block:
       - name: "Load the sample data (load-data)"
         shell: |
-          cd ~/services &&
           influx -execute 'create database sampledb' &&
           curl --data-binary @- "http://localhost:8086/write?db=sampledb&precision=ns" < test-data/load.influx &&
           kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
