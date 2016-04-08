@@ -9,8 +9,11 @@ normalize-query() {
 influx --execute 'drop measurement actual' --database sampledb || true
 influx --execute 'drop measurement expected' --database sampledb || true
 
-kapacitor define -name aggregate -tick aggregate.tick -type stream -dbrp "sampledb"."default"
-kapacitor replay -id $(cat ../../recording.id) -name aggregate --fast --rec-time
+kapacitor define -name issue-430 -tick aggregate.tick -type stream -dbrp "sampledb"."default"
+if ! test -f recording.id; then
+	kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
+fi
+kapacitor replay -id recording.id -name issue-430 --fast --rec-time
 
 influx \
     --format=csv \

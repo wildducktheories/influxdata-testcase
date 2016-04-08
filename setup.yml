@@ -119,6 +119,4 @@
         shell: |
           influx -execute 'create database sampledb' &&
           curl --data-binary @- "http://localhost:8086/write?db=sampledb&precision=ns" < test-data/load.influx &&
-          kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
-
       tags: ["load-data"]

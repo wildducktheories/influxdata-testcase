@@ -1,4 +1,7 @@
 #!/bin/bash
 set -ex
-kapacitor define -name join -tick join.tick -type stream -dbrp "sampledb"."default"
-kapacitor replay -id $(cat ../../recording.id) -name join --fast --rec-time
+kapacitor define -name issue-331 -tick join.tick -type stream -dbrp "sampledb"."default"
+if ! test -f recording.id; then
+	kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
+fi
+kapacitor replay -id $(cat recording.id) -name issue-331 --fast --rec-time
