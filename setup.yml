@@ -41,7 +41,7 @@
     - block:
       - name: "make base influxdb image"
         docker_image:
-          path=/home/{{ansible_user}}/influxdb-docker/0.11/
+          path=/home/{{ansible_user}}/influxdb-docker/0.12/
           name=influxdb
           state=present
           tag=latest
@@ -118,5 +118,5 @@
       - name: "Load the sample data (load-data)"
         shell: |
           influx -execute 'create database sampledb' &&
-          curl --data-binary @- "http://localhost:8086/write?db=sampledb&precision=ns" < test-data/load.influx &&
+          curl --data-binary @- "http://localhost:8086/write?db=sampledb&precision=ns" < test-data/load.influx
       tags: ["load-data"]
