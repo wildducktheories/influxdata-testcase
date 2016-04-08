@@ -93,6 +93,11 @@
           '
         when: build_variant
 
+      - name: "install csv tools"
+        shell: |
+          go get -d github.com/wildducktheories/go-csv
+          go install github.com/wildducktheories/go-csv/...
+
       - name: "build composition"
         shell: |
           cd ~/services &&
