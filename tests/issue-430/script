@@ -1,0 +1,34 @@
+#!/bin/bash
+set -ex
+set -o pipefail
+
+normalize-query() {
+    echo "$1" | sed "s/^ *//" | tr \\011 ' ' | tr \\012 ' '
+}
+
+influx --execute 'drop measurement actual' --database sampledb || true
+influx --execute 'drop measurement expected' --database sampledb || true
+
+kapacitor define -name aggregate -tick aggregate.tick -type stream -dbrp "sampledb"."default"
+kapacitor replay -id $(cat ../../recording.id) -name aggregate --fast --rec-time
+
+influx \
+    --format=csv \
+    --execute \
+        "$(normalize-query "
+            select mean(metric1) as metric1
+            into expected
+            from sample
+            where
+                time >= '2016-03-08 05:00:00'
+                and time < '2016-03-08 08:00:00'
+                and node='C578A231-DB09-457B-B5FD-C86ABD135413'
+            group by time(5m), *"
+        )" \
+    --precision=rfc3339 \
+    --database=sampledb
+
+influx --format=csv --precision=rfc3339 --database=sampledb --execute 'select * from actual limit 5'  | csv-sort --key=time,node > actual.csv
+influx --format=csv --precision=rfc3339 --database=sampledb --execute 'select * from expected limit 5' | csv-sort --key=time,node > expected.csv
+
+diff <(sed "s/expected/actual/" < expected.csv) actual.csv | tee diff.csv #needs pipefail
