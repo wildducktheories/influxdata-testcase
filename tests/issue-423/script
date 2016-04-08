@@ -1,28 +1,32 @@
 #!/bin/bash
 set -ex
 
-kapacitor define -name aggregate -tick aggregate.tick -type stream -dbrp "sampledb"."default"
-kapacitor replay -id $(cat ../../recording.id) -name aggregate --fast --rec-time
+normalize-query() {
+    echo "$1" | sed "s/^ *//" | tr \\011 ' ' | tr \\012 ' '
+}
 
 influx --execute 'drop measurement actual' --database sampledb || true
 influx --execute 'drop measurement expected' --database sampledb || true
 
+kapacitor define -name aggregate -tick aggregate.tick -type stream -dbrp "sampledb"."default"
+kapacitor replay -id $(cat ../../recording.id) -name aggregate --fast --rec-time
+
 influx \
     --format=csv \
     --execute \
-        "$(echo "
+        "$(normalize-query "
             select mean(metric1) as metric1
             into expected
             from sample
             where
                 time >= '2016-03-08 05:00:00'
                 and time < '2016-03-08 08:00:00'
-            group by time(5m), *" | tr \\012 ' ' | tr -s ' '
+            group by time(5m), *"
         )" \
     --precision=rfc3339 \
     --database=sampledb
 
-influx --format=csv --precision=rfc3339 --database=sampledb --execute 'select * from actual'  > actual.csv
-influx --format=csv --precision=rfc3339 --database=sampledb --execute 'select * from expected' > expected.csv
+influx --format=csv --precision=rfc3339 --database=sampledb --execute 'select * from actual'  | csv-sort --key=time,node > actual.csv
+influx --format=csv --precision=rfc3339 --database=sampledb --execute 'select * from expected' | csv-sort --key=time,node > expected.csv
 
 diff <(sed "s/expected/actual/" < expected.csv) actual.csv
