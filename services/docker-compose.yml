@@ -3,6 +3,7 @@ version: "2"
 services:
   influxdb:
     image: influxdb:build
+    restart: always
     expose:
     - 8086
     - 8083
@@ -17,11 +18,14 @@ services:
 
   kapacitor:
     image: kapacitor:build
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile.kapacitor
     expose:
     - 9092
+    volumes:
+      - ./data/kapacitor:/var/lib/kapacitor
     environment:
       KAPACITOR_HOSTNAME: services_kapacitor_1
       KAPACITOR_INFLUXDB_0_URLS_0: http://services_influxdb_1:8086

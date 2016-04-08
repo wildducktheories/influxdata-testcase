@@ -13,10 +13,6 @@
 
     - name: "Run test cases - {{test}}"
       shell: |
-        set -e
-        cd ~/services
-        docker-compose up -d
-        sleep 3
         cd ~/tests/{{item}}
         ./script
       with_items: "{{test}}"
