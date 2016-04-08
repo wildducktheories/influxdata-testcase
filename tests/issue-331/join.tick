@@ -3,11 +3,12 @@ var metric1 = stream
 		.database('sampledb')
 		.retentionPolicy('default')
 		.measurement('sample')
+		.groupBy('node')
 	|window()
 		.align()
 		.period(5m)
 		.every(5m)
-	|groupBy('node')
+	|shift(-5m)
 	|mean('metric1').as('metric1')
 
 
@@ -16,11 +17,12 @@ var metric2 = stream
 		.database('sampledb')
 		.retentionPolicy('default')
 		.measurement('sample')
+		.groupBy('node')
 	|window()
 		.align()
 		.period(5m)
 		.every(5m)
-	|groupBy('node')
+	|shift(-5m)
 	|mean('metric2').as('metric2')
 
 metric1
