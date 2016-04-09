@@ -6,6 +6,13 @@
 
   vars:
     build_variant: false
+    kapacitor_checkout: master
+    influxdb_checkout: master
+    projects:
+      - project: kapacitor
+        checkout: "{{kapacitor_checkout}}"
+      - project: influxdb
+        checkout: "{{influxdb_checkout}}"
 
   roles:
     - role: angstwad.docker_ubuntu
@@ -19,6 +26,15 @@
 
   tasks:
     - include: tasks/sync.yml
+
+    - name: Add ssh agent line to sudoers
+      become_user: root
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        regexp: SSH_AUTH_SOCK
+        line: Defaults env_keep += "SSH_AUTH_SOCK"
+      tags: ["init-sudo"]
 
     - block:
       - name: "clone influxdb-docker"
@@ -69,30 +85,40 @@
         tags: ["links"]
         become_user: root
 
+    - block:
+      - name: "sync with source"
+        shell: |
+          cd $GOPATH/src/github.com/influxdata/{{item.project}} &&
+          git fetch origin &&
+          git checkout {{item.checkout}}
+        with_items: "{{projects}}"
+
       - name: "build influxdb"
         shell: |
-          bash -c '
             pushd ~/go/src/github.com/influxdata/influxdb &&
             go get -d ./... &&
             popd &&
             mkdir -p services/build &&
             go build -o services/build/influxd github.com/influxdata/influxdb/cmd/influxd &&
             go build -o services/build/influx github.com/influxdata/influxdb/cmd/influx
-          '
-        when: build_variant
+        args:
+          executable: /bin/bash
 
       - name: "build kapacitor"
         shell: |
-          bash -c '
             OLDPWD=$(pwd) &&
-            mkdir -p build &&
+            mkdir -p services/build &&
             pushd ~/go/src/github.com/influxdata/kapacitor &&
             go get -d ./... &&
-            docker run -it -v ${OLDPWD}/services/build:/app/build -v "${GOPATH}":/gopath -v "$(pwd)":/app -e "GOPATH=/gopath" -w /app golang:1.6 sh -c '\''go build --ldflags="-s" -o build/kapacitord ./cmd/kapacitord'\''
-            docker run -it -v ${OLDPWD}/services/build:/app/build -v "${GOPATH}":/gopath -v "$(pwd)":/app -e "GOPATH=/gopath" -w /app golang:1.6 sh -c '\''go build --ldflags="-s" -o build/kapacitor ./cmd/kapacitor'\''
-          '
-        when: build_variant
+            docker run -it -v ${OLDPWD}/services/build:/app/build -v "${GOPATH}":/gopath -v "$(pwd)":/app -e "GOPATH=/gopath" -w /app golang:1.6 sh -c 'go build --ldflags="-s" -o build/kapacitord ./cmd/kapacitord'
+            docker run -it -v ${OLDPWD}/services/build:/app/build -v "${GOPATH}":/gopath -v "$(pwd)":/app -e "GOPATH=/gopath" -w /app golang:1.6 sh -c 'go build --ldflags="-s" -o build/kapacitor ./cmd/kapacitor'
+        args:
+          executable: /bin/bash
 
+      tags: recompile
+      when: build_variant
+
+    - block:
       - name: "install csv tools"
         shell: |
           go get -d github.com/wildducktheories/go-csv
@@ -100,10 +126,16 @@
 
       - name: "build composition"
         shell: |
-          cd ~/services &&
-          docker-compose build
+          docker-compose -f ~/services/docker-compose.yml build
 
-      tags: ["build"]
+      tags: ["build", "recompile"]
+
+    - name: "restart composition after variant build"
+      shell: |
+        docker-compose -f ~/services/docker-compose.yml down
+        docker-compose -f ~/services/docker-compose.yml up -d
+      when: build_variant
+      tags: ["recompile"]
 
     - block:
       - name: "start"
