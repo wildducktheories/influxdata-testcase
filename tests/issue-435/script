@@ -1,0 +1,9 @@
+#!/bin/bash
+set -ex
+kapacitor define -name issue-435 -tick join.tick -type stream -dbrp "sampledb"."default"
+kapacitor define -name issue-435-duplicates -tick duplicates.tick -type stream -dbrp "sampledb"."default"
+if ! test -f recording.id; then
+	kapacitor record query -query 'select * from "sampledb"."default"."sample" group by *' -type stream > recording.id
+fi
+kapacitor replay -id $(cat recording.id) -name issue-435 --fast --rec-time
+kapacitor replay -id $(cat recording.id) -name issue-435-duplicates --fast --rec-time

@@ -1,0 +1,43 @@
+var metric1 = stream
+	|from()
+		.database('sampledb')
+		.retentionPolicy('default')
+		.measurement('sample')
+		.groupBy('node')
+	|window()
+		.align()
+		.period(5m)
+		.every(5m)
+	|shift(-5m)
+	|mean('metric1').as('metric1')
+
+
+var metric2 = stream
+	|from()
+		.database('sampledb')
+		.retentionPolicy('default')
+		.measurement('sample')
+		.groupBy('node')
+	|window()
+		.align()
+		.period(5m)
+		.every(5m)
+	|shift(-5m)
+	|mean('metric2').as('metric2')
+
+var metric2a = stream
+	|from()
+		.database('sampledb')
+		.retentionPolicy('default')
+		.measurement('sample')
+		.groupBy('node')
+	|window()
+		.align()
+		.period(5m)
+		.every(5m)
+	|shift(-5m)
+	|mean('metric2').as('metric2')
+
+metric2
+	|join(metric2a)
+	|log()
